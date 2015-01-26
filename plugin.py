@@ -539,6 +539,31 @@ class TriviaTime(callbacks.Plugin):
         self.logger.doLog(irc, channel, "%s added question file: '%s', added: %i, skipped: %i" % (msg.nick, filename, info[0], info[1]))
     addfile = wrap(addfile, ['owner', optional('text')])
 
+    def alltime(self, irc, msg, arg, channel, num):
+        """[<channel>] [<number>]
+            Displays the top scores of the day. 
+            Parameter is optional, display up to that number. (eg 20 - display 11-20)
+            Channel is only required when using the command outside of a channel.
+        """
+        num = max(num, 10)
+        offset = num-9
+        dbLocation = self.registryValue('admin.sqlitedb')
+        threadStorage = self.Storage(dbLocation)
+        if self.registryValue('general.globalStats'):
+            tops = threadStorage.viewAllTimeTop10(None, num)
+        else:
+            tops = threadStorage.viewAllTimeTop10(channel, num)
+        
+        topsList = ['All-Time Top {0}-{1} Players: '.format(offset, num)]
+        if tops:
+            for i in range(len(tops)):
+                topsList.append('\x02 #%d:\x02 %s %d ' % ((i+offset) , self.addZeroWidthSpace(tops[i]['username']), tops[i]['points']))
+        else:
+            topsList.append('No players')
+        topsText = ''.join(topsList)
+        self.reply(irc, msg, topsText, prefixNick=False)
+    day = wrap(day, ['channel', optional('int')])
+    
     def authweb(self, irc, msg, arg, channel):
         """[<channel>]
         This registers triviamods and triviaadmins on the website. 
@@ -916,6 +941,9 @@ class TriviaTime(callbacks.Plugin):
             if rank['year'] > 0 or stat['points_year'] > 0 or stat['answer_year'] > 0:
                 hasPoints = True
                 infoList.append(' \x02This Year:\x02 #%d %d (%d)' % (rank['year'], stat['points_year'], stat['answer_year']))
+            if rank['total'] > 0 or stat['points_total'] > 0 or stat['answer_total'] > 0:
+                hasPoints = True
+                infoList.append(' \x02All-Time:\x02 #%d %d (%d)' % (rank['total'], stat['points_total'], stat['answer_total']))
             if not hasPoints:
                 infoList = ['%s: You do not have any points.' % (username)]
                 if not identified:
@@ -1279,6 +1307,9 @@ class TriviaTime(callbacks.Plugin):
             if rank['year'] > 0 or stat['points_year'] > 0 or stat['answer_year'] > 0:
                 hasPoints = True
                 infoList.append(' \x02This Year:\x02 #%d %d (%d)' % (rank['year'], stat['points_year'], stat['answer_year']))
+            if rank['total'] > 0 or stat['points_total'] > 0 or stat['answer_total'] > 0:
+                hasPoints = True
+                infoList.append(' \x02All-Time:\x02 #%d %d (%d)' % (rank['total'], stat['points_total'], stat['answer_total']))
             if not hasPoints:
                 infoList = ['%s: %s does not have any points.' % (msg.nick, username)]
             infoText = ''.join(infoList)
