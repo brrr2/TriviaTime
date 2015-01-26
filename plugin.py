@@ -541,7 +541,7 @@ class TriviaTime(callbacks.Plugin):
 
     def alltime(self, irc, msg, arg, channel, num):
         """[<channel>] [<number>]
-            Displays the top scores of the day. 
+            Displays the top all-time scores. 
             Parameter is optional, display up to that number. (eg 20 - display 11-20)
             Channel is only required when using the command outside of a channel.
         """
@@ -562,7 +562,7 @@ class TriviaTime(callbacks.Plugin):
             topsList.append('No players')
         topsText = ''.join(topsList)
         self.reply(irc, msg, topsText, prefixNick=False)
-    day = wrap(day, ['channel', optional('int')])
+    alltime = wrap(alltime, ['channel', optional('int')])
     
     def authweb(self, irc, msg, arg, channel):
         """[<channel>]
