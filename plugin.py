@@ -450,7 +450,7 @@ class Game:
             # Check for any pending stops, otherwise queue next question
             if self.stopPending == True:
                 self.stop()
-            else
+            else:
                 waitTime = self.registryValue('general.waitTime',self.channel)
                 if waitTime < 2:
                     waitTime = 2
