@@ -191,7 +191,7 @@ class Game:
             else:
                 self.streak += 1
                 streakBonus = points * .01 * (self.streak-1)
-                streakBonus = min(steakBonus, points * .5)
+                streakBonus = min(streakBonus, points * .5)
 
             # Update database
             threadStorage.updateGameStreak(self.channel, self.lastWinner, self.streak)
@@ -372,7 +372,7 @@ class Game:
 
     def getExtraHintString(self):
         charMask = self.registryValue('hints.charMask', self.channel)
-        if self.questionType == 'kaos' or len(self.answers) < 1:
+        if self.questionType == 'kaos':
             return
         ans = self.answers[0]
 
@@ -405,13 +405,12 @@ class Game:
             return
         if self.shownHint == False:
             self.shownHint = True
-            if len(self.answers) == 1:
-                self.sendMessage(self.getExtraHintString())
+            self.sendMessage(self.getExtraHintString())
 
     def getRemainingKAOS(self):
         if self.questionOver:
             return
-        if len(self.answers) > 1:
+        if self.questionType == 'kaos':
             if self.shownHint == False:
                 self.shownHint = True
                 self.sendMessage('\x02\x0312%s' % (self.getHintString(self.hintsCounter-1)))
