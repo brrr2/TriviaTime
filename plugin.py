@@ -256,58 +256,83 @@ class Game:
         if hintNum == None:
             hintNum = self.hintsCounter
         hintRatio = self.registryValue('hints.hintRatio') # % to show each hint
-        hints = ''
+        hint = ''
         ratio = float(hintRatio * .01)
         charMask = self.registryValue('hints.charMask', self.channel)
 
         # create a string with hints for all of the answers
-        for ans in self.answers:
-            if ircutils.toLower(ans) in self.guessedAnswers:
-                continue
-            ans = unicode(ans.decode('utf-8'))
-            if hints != '':
-                hints += ' '
-            if len(self.answers) > 1:
-                hints += '['
+        if self.questionType == 'kaos':
+            for ans in self.answers:
+                if ircutils.toLower(ans) not in self.guessedAnswers:
+                    ans = unicode(ans.decode('utf-8'))
+                    hintStr = ''
+                    if hintNum == 0:
+                        for char in ans:
+                            if char in self.unmaskedChars:
+                                hintStr += char
+                            else:
+                                hintStr += charMask
+                    elif hintNum == 1:
+                        divider = int(len(ans) * ratio)
+                        divider = min(divider, 3)
+                        divider = min(divider, len(ans)-1)
+                        hintStr += ans[:divider]
+                        masked = ans[divider:]
+                        for char in masked:
+                            if char in self.unmaskedChars:
+                                hintStr += char
+                            else:
+                                hintStr += charMask
+                    elif hintNum == 2:
+                        divider = int(len(ans) * ratio)
+                        divider = min(divider, 3)
+                        divider = min(divider, len(ans)-1)
+                        lettersInARow = divider-1
+                        maskedInARow = 0
+                        hintStr += ans[:divider]
+                        ansend = ans[divider:]
+                        hintsend = ''
+                        unmasked = 0
+                        if self.registryValue('hints.vowelsHint', self.channel):
+                            hintStr += self.getMaskedVowels(ansend, divider-1)
+                        else:
+                            hintStr += self.getMaskedRandom(ansend, divider-1)
+                    hint += ' [{0}]'.format(hintStr)
+        else:
+            ans = unicode(self.answers[0].decode('utf-8'))
             if hintNum == 0:
-                masked = ans
-                for i in range(len(masked)):
-                    if masked[i] in self.unmaskedChars:
-                        hints+= masked[i]
+                for char in ans:
+                    if char in self.unmaskedChars:
+                        hint += char
                     else:
-                        hints += charMask
+                        hint += charMask
             elif hintNum == 1:
                 divider = int(len(ans) * ratio)
-                if divider > 3:
-                    divider = 3
-                if divider >= len(ans):
-                    divider = len(ans)-1
-                hints += ans[:divider]
+                divider = min(divider, 3)
+                divider = min(divider, len(ans)-1)
+                hint += ans[:divider]
                 masked = ans[divider:]
-                for i in range(len(masked)):
-                    if masked[i] in self.unmaskedChars:
-                        hints+= masked[i]
+                for char in masked:
+                    if char in self.unmaskedChars:
+                        hint += char
                     else:
-                        hints += charMask
+                        hint += charMask
             elif hintNum == 2:
                 divider = int(len(ans) * ratio)
-                if divider > 3:
-                    divider = 3
-                if divider >= len(ans):
-                    divider = len(ans)-1
-                lettersInARow=divider-1
-                maskedInARow=0
-                hints += ans[:divider]
+                divider = min(divider, 3)
+                divider = min(divider, len(ans)-1)
+                lettersInARow = divider-1
+                maskedInARow = 0
+                hint += ans[:divider]
                 ansend = ans[divider:]
                 hintsend = ''
                 unmasked = 0
                 if self.registryValue('hints.vowelsHint', self.channel):
-                    hints+= self.getMaskedVowels(ansend, divider-1)
+                    hint += self.getMaskedVowels(ansend, divider-1)
                 else:
-                    hints+= self.getMaskedRandom(ansend, divider-1)
-            if len(self.answers) > 1:
-                hints += ']'
-        return hints.encode('utf-8')
+                    hint += self.getMaskedRandom(ansend, divider-1)
+        
+        return hint.strip().encode('utf-8')
 
     def getMaskedVowels(self, letters, sizeOfUnmasked):
         charMask = self.registryValue('hints.charMask', self.channel)
@@ -356,9 +381,9 @@ class Game:
                 hints += charMask
         return hints
 
-    def getOtherHintString(self):
+    def getExtraHintString(self):
         charMask = self.registryValue('hints.charMask', self.channel)
-        if len(self.answers) > 1 or len(self.answers) < 1:
+        if self.questionType == 'kaos' or len(self.answers) < 1:
             return
         ans = self.answers[0]
 
@@ -386,13 +411,13 @@ class Game:
 
         return hints
 
-    def getOtherHint(self):
+    def getExtraHint(self):
         if self.questionOver:
             return
         if self.shownHint == False:
             self.shownHint = True
             if len(self.answers) == 1:
-                self.sendMessage(self.getOtherHintString())
+                self.sendMessage(self.getExtraHintString())
 
     def getRemainingKAOS(self):
         if self.questionOver:
@@ -2755,13 +2780,13 @@ class TriviaTime(callbacks.Plugin):
             return
         channelCanonical = ircutils.toLower(channel)
 
-        otherHintCommand  = self.registryValue('commands.extraHint', channel)
+        extraHintCommand  = self.registryValue('commands.extraHint', channel)
         extraHintTime = self.registryValue('hints.extraHintTime', channel)
         game = self.getGame(irc, channel)
 
         if game is not None:
             # Check for extra hint command
-            if msg.args[1] == otherHintCommand:
+            if msg.args[1] == extraHintCommand:
                 if game.question.find("KAOS:") == 0:
                     game.getRemainingKAOS()
                 else:
@@ -2771,7 +2796,7 @@ class TriviaTime(callbacks.Plugin):
                             self.reply(irc, msg, 'You must wait %d seconds to be able to use the extra hint command.' % (game.hintTimeoutList.getTimeLeft(usernameCanonical)), notice=True)
                         else:
                             game.hintTimeoutList.append(usernameCanonical)
-                            game.getOtherHint()
+                            game.getExtraHint()
             else:
                 # check the answer
                 game.checkAnswer(msg)
