@@ -141,7 +141,7 @@ class Game:
             points /= 2 * (self.hintsCounter - 1)
 
         # Handle a correct answer for a KAOS question
-        if self.questionType = 'kaos':
+        if self.questionType == 'kaos':
             if usernameCanonical not in self.correctPlayers:
                 self.correctPlayers[usernameCanonical] = 0
             self.correctPlayers[usernameCanonical] += 1
@@ -174,18 +174,6 @@ class Game:
                 self.sendMessage('Total Awarded: \x02%d\x02 Points to \x02%d\x02 Players' % (int(self.totalAmountWon), len(self.correctPlayers)))
 
                 threadStorage.updateQuestionStats(self.questionID, 1, 0)
-                self.removeEvent()
-                
-                # Check for any pending stops, otherwise queue next question
-                if self.stopPending == True:
-                    self.stop()
-                else:
-                    waitTime = self.registryValue('general.waitTime', self.channel)
-                    if waitTime < 2:
-                        waitTime = 2
-                        log.error('waitTime was set too low (<2 seconds). Setting to 2 seconds')
-                    waitTime = time.time() + waitTime
-                    self.queueEvent(waitTime, self.nextQuestion)
                 
         # Handle a correct answer for a regular question
         else:
@@ -238,7 +226,8 @@ class Game:
                         recapMessageList.append(' this MONTH: \x02%d\x02' % (monthScore))
                     recapMessage = ''.join(recapMessageList)
                     self.sendMessage(recapMessage)
-            
+        
+        if self.questionOver:
             self.removeEvent()
             
             # Check for any pending stops, otherwise queue next question
