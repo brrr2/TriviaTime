@@ -696,69 +696,63 @@ class Storage:
             yield qs[i:i+rows]
 
     def countTemporaryQuestions(self, channel=None):
-        c = self.conn.cursor()
-        if channel is None:
-            c.execute('''SELECT COUNT(*) 
-                         FROM triviatemporaryquestion''')
-        else:
-            c.execute('''SELECT COUNT(*) 
-                         FROM triviatemporaryquestion
-                         WHERE channel_canonical=?''', 
-                         (ircutils.toLower(channel),))
-        row = c.fetchone()
-        c.close()
-        return row[0]
+        with self.conn as c:
+            if channel is None:
+                cur = c.execute('''SELECT COUNT(*) 
+                                   FROM triviatemporaryquestion''')
+            else:
+                cur = c.execute('''SELECT COUNT(*) 
+                                   FROM triviatemporaryquestion
+                                   WHERE channel_canonical=?''', 
+                                   (ircutils.toLower(channel),))
+            row = cur.fetchone()
+            return row[0]
 
     def countDeletes(self, channel=None):
-        c = self.conn.cursor()
-        if channel is None:
-            c.execute('''SELECT COUNT(*) 
-                         FROM triviadelete''')
-        else:
-            c.execute('''SELECT COUNT(*) 
-                         FROM triviadelete
-                         WHERE channel_canonical=?''', 
-                         (ircutils.toLower(channel),))
-        row = c.fetchone()
-        c.close()
-        return row[0]
+        with self.conn as c:
+            if channel is None:
+                cur = c.execute('''SELECT COUNT(*) 
+                                   FROM triviadelete''')
+            else:
+                cur = c.execute('''SELECT COUNT(*) 
+                                   FROM triviadelete
+                                   WHERE channel_canonical=?''', 
+                                   (ircutils.toLower(channel),))
+            row = cur.fetchone()
+            return row[0]
 
     def countEdits(self, channel=None):
-        c = self.conn.cursor()
-        if channel is None:
-            c.execute('''SELECT COUNT(*) 
-                         FROM triviaedit''')
-        else:
-            c.execute('''SELECT COUNT(*) 
-                         FROM triviaedit
-                         WHERE channel_canonical=?''', 
-                         (ircutils.toLower(channel),))
-        row = c.fetchone()
-        c.close()
-        return row[0]
+        with self.conn as c:
+            if channel is None:
+                cur = c.execute('''SELECT COUNT(*) 
+                                   FROM triviaedit''')
+            else:
+                cur = c.execute('''SELECT COUNT(*) 
+                                   FROM triviaedit
+                                   WHERE channel_canonical=?''', 
+                                   (ircutils.toLower(channel),))
+            row = cur.fetchone()
+            return row[0]
 
     def countReports(self, channel=None):
-        c = self.conn.cursor()
-        if channel is None:
-            c.execute('''SELECT COUNT(*) 
-                         FROM triviareport''')
-        else:
-            c.execute('''SELECT COUNT(*) 
-                         FROM triviareport
-                         WHERE channel_canonical=?''', 
-                         (ircutils.toLower(channel),))
-        row = c.fetchone()
-        c.close()
-        return row[0]
+        with self.conn as c:
+            if channel is None:
+                cur = c.execute('''SELECT COUNT(*) 
+                                   FROM triviareport''')
+            else:
+                cur = c.execute('''SELECT COUNT(*) 
+                                   FROM triviareport
+                                   WHERE channel_canonical=?''', 
+                                   (ircutils.toLower(channel),))
+            row = cur.fetchone()
+            return row[0]
     
     def deleteQuestion(self, questionId):
-        c = self.conn.cursor()
-        test = c.execute('''UPDATE triviaquestion 
-                            SET deleted=1
-                            WHERE id=?''', 
-                            (questionId,))
-        self.conn.commit()
-        c.close()
+        with self.conn as c:
+            c.execute('''UPDATE triviaquestion 
+                         SET deleted=1
+                         WHERE id=?''', 
+                         (questionId,))
 
     def dropActivityTable(self):
         c = self.conn.cursor()
@@ -859,45 +853,41 @@ class Storage:
         c.close()
 
     def getRandomQuestionNotAsked(self, channel, roundStart):
-        c = self.conn.cursor()
-        c.execute('''SELECT * 
-                     FROM triviaquestion
-                     WHERE deleted=0 AND 
-                           id NOT IN 
-                               (SELECT tl.line_num 
-                                FROM triviagameslog tl 
-                                WHERE tl.channel_canonical=? AND 
-                                      tl.asked_at>=?)
-                     ORDER BY random() LIMIT 1''', 
-                     (ircutils.toLower(channel),roundStart))
-        row = c.fetchone()
-        c.close()
-        return row
+        with self.conn as c:
+            cur = c.execute('''SELECT * 
+                               FROM triviaquestion
+                               WHERE deleted=0 AND 
+                                     id NOT IN 
+                                         (SELECT tl.line_num 
+                                          FROM triviagameslog tl 
+                                          WHERE tl.channel_canonical=? AND 
+                                                tl.asked_at>=?)
+                               ORDER BY random() LIMIT 1''', 
+                               (ircutils.toLower(channel), roundStart))
+            row = cur.fetchone()
+            return row
 
     def getQuestionById(self, id):
-        c = self.conn.cursor()
-        c.execute('''SELECT * 
-                     FROM triviaquestion 
-                     WHERE id=? LIMIT 1''', 
-                     (id,))
-        row = c.fetchone()
-        c.close()
-        return row
+        with self.conn as c:
+            cur = c.execute('''SELECT * 
+                               FROM triviaquestion 
+                               WHERE id=? LIMIT 1''', 
+                               (id,))
+            row = cur.fetchone()
+            return row
 
-    def getQuestionByRound(self, roundNumber, channel):
-        channel=ircutils.toLower(channel)
-        c = self.conn.cursor()
-        c.execute('''SELECT * 
-                     FROM triviaquestion 
-                     WHERE id=(SELECT tgl.line_num 
-                               FROM triviagameslog tgl
-                               WHERE tgl.round_num=? AND 
-                                     tgl.channel_canonical=?
-                               ORDER BY id DESC LIMIT 1)''', 
-                     (roundNumber,channel))
-        row = c.fetchone()
-        c.close()
-        return row
+    def getQuestionByRound(self, round, channel):
+        with self.conn as c:
+            cur = c.execute('''SELECT * 
+                               FROM triviaquestion 
+                               WHERE id=(SELECT tgl.line_num 
+                                         FROM triviagameslog tgl
+                                         WHERE tgl.round_num=? AND 
+                                               tgl.channel_canonical=?
+                                         ORDER BY id DESC LIMIT 1)''', 
+                               (round, ircutils.toLower(channel)))
+            row = cur.fetchone()
+            return row
 
     def getNumQuestionsNotAsked(self, channel, roundStart):
         c = self.conn.cursor()
