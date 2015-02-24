@@ -890,19 +890,18 @@ class Storage:
             return row
 
     def getNumQuestionsNotAsked(self, channel, roundStart):
-        c = self.conn.cursor()
-        c.execute('''SELECT count(id) 
-                     FROM triviaquestion
-                     WHERE deleted=0 AND 
-                           id NOT IN 
-                                (SELECT tl.line_num 
-                                 FROM triviagameslog tl 
-                                 WHERE tl.channel=? AND 
-                                       tl.asked_at>=?)''', 
-                    (channel,roundStart))
-        row = c.fetchone()
-        c.close()
-        return row[0]
+        with self.conn as c:
+            cur = c.execute('''SELECT count(id) 
+                               FROM triviaquestion
+                               WHERE deleted=0 AND 
+                                     id NOT IN 
+                                        (SELECT tl.line_num 
+                                         FROM triviagameslog tl 
+                                         WHERE tl.channel=? AND 
+                                               tl.asked_at>=?)''', 
+                               (channel, roundStart))
+            row = cur.fetchone()
+            return row[0]
 
     def getUserRank(self, username, channel):
         usernameCanonical = ircutils.toLower(username)
@@ -1308,103 +1307,92 @@ class Storage:
         return data
     
     def getUserLevel(self, username, channel):
-        usernameCanonical = ircutils.toLower(username)
-        channelCanonical = ircutils.toLower(channel)
-        
-        c = self.conn.cursor()
-        c.execute('''SELECT level 
-                     FROM trivialevel
-                     WHERE username_canonical=? AND 
-                           channel_canonical=?''', 
-                     (username_canonical, channel_canonical))
-        row = c.fetchone()
-        c.close()
-        return row[0]
+        with self.conn as c:
+            cur = c.execute('''SELECT level 
+                               FROM trivialevel
+                               WHERE username_canonical=? AND 
+                                     channel_canonical=?''', 
+                               (ircutils.toLower(username), ircutils.toLower(channel)))
+            row = cur.fetchone()
+            return row[0]
         
     def getGame(self, channel):
-        channel = ircutils.toLower(channel)
-        c = self.conn.cursor()
-        c.execute('''SELECT * 
-                     FROM triviagames
-                     WHERE channel_canonical=? 
-                     LIMIT 1''', 
-                     (channel,))
-        row = c.fetchone()
-        c.close()
-        return row
+        with self.conn as c:
+            cur = c.execute('''SELECT * 
+                               FROM triviagames
+                               WHERE channel_canonical=? 
+                               LIMIT 1''', 
+                               (ircutils.toLower(channel),))
+            row = cur.fetchone()
+            return row
 
     def getNumUser(self, channel):
-        channelCanonical = ircutils.toLower(channel)
-        c = self.conn.cursor()
-        c.execute('''SELECT COUNT(DISTINCT(username_canonical)) 
-                     FROM triviauserlog 
-                     WHERE channel_canonical=?''', 
-                     (channelCanonical,))
-        row = c.fetchone()
-        c.close()
-        return row[0]
+        with self.conn as c:
+            cur = c.execute('''SELECT COUNT(DISTINCT(username_canonical)) 
+                               FROM triviauserlog 
+                               WHERE channel_canonical=?''', 
+                               (ircutils.toLower(channel),))
+            row = cur.fetchone()
+            return row[0]
 
     def getNumQuestions(self):
-        c = self.conn.cursor()
-        c.execute('''SELECT COUNT(*) 
-                     FROM triviaquestion 
-                     WHERE deleted=0''')
-        row = c.fetchone()
-        c.close()
-        return row[0]
+        with self.conn as c:
+            cur = c.execute('''SELECT COUNT(*) 
+                               FROM triviaquestion 
+                               WHERE deleted=0''')
+            row = cur.fetchone()
+            return row[0]
 
     def getNumKAOS(self):
-        c = self.conn.cursor()
-        c.execute('''SELECT COUNT(*) 
-                     FROM triviaquestion 
-                     WHERE lower(substr(question,1,4))=?''', 
-                     ('kaos',))
-        row = c.fetchone()
-        c.close()
-        return row[0]
+        with self.conn as c:
+            cur = c.execute('''SELECT COUNT(*) 
+                               FROM triviaquestion 
+                               WHERE lower(substr(question,1,4))=?''', 
+                               ('kaos',))
+            row = cur.fetchone()
+            return row[0]
 
     def getNumActiveThisWeek(self, channel):
         channelCanonical = ircutils.toLower(channel)
         d = datetime.date.today()
-        weekday=d.weekday()
+        weekday = d.weekday()
         d -= datetime.timedelta(weekday)
         weekSqlString = ''
         for i in range(7):
             if i > 0:
-                weekSqlString += ' or '
+                weekSqlString += ''' or '''
             weekSqlString += '''
                         (tl.year=%d
                         AND tl.month=%d
                         AND tl.day=%d)''' % (d.year, d.month, d.day)
             d += datetime.timedelta(1)
-        c = self.conn.cursor()
         weekSql = '''SELECT COUNT(DISTINCT(tl.username_canonical))
                      FROM triviauserlog tl
                      WHERE channel_canonical=? AND ('''
         weekSql += weekSqlString
         weekSql += ''')'''
-        c.execute(weekSql, (channelCanonical,))
-        row = c.fetchone()
-        c.close()
-        return row[0]
+        
+        with self.conn as c:
+            cur = c.execute(weekSql, (channelCanonical,))
+            row = cur.fetchone()
+            return row[0]
 
     def getDeleteById(self, id, channel=None):
-        c = self.conn.cursor()
-        if channel is None:
-            c.execute('''SELECT * 
-                         FROM triviadelete 
-                         WHERE id=? LIMIT 1''', 
-                         (id,))
-        else:
-            c.execute('''SELECT * 
-                         FROM triviadelete 
-                         WHERE id=? AND 
-                               channel_canonical=? 
-                         LIMIT 1''', 
-                         (id, ircutils.toLower(channel)))
-        row = c.fetchone()
-        c.close()
-        return row
+        with self.conn as c:
+            if channel is None:
+                cur = c.execute('''SELECT * 
+                                   FROM triviadelete 
+                                   WHERE id=? LIMIT 1''', 
+                                   (id,))
+            else:
+                cur = c.execute('''SELECT * 
+                                   FROM triviadelete 
+                                   WHERE id=? AND 
+                                         channel_canonical=? 
+                                   LIMIT 1''', 
+                                   (id, ircutils.toLower(channel)))
+            row = cur.fetchone()
+            return row
 
     def getDeleteTop3(self, page=1, amount=3, channel=None):
         if page < 1:
@@ -1413,39 +1401,37 @@ class Storage:
             amount=3
         page -= 1
         start = page * amount
-        c = self.conn.cursor()
-        if channel is None:
-            c.execute('''SELECT * 
-                         FROM triviadelete 
-                         ORDER BY id DESC LIMIT ?, ?''', 
-                         (start, amount))
-        else:
-            c.execute('''SELECT * 
-                         FROM triviadelete 
-                         WHERE channel_canonical=? 
-                         ORDER BY id DESC LIMIT ?, ?''', 
-                         (ircutils.toLower(channel), start, amount))
-        rows = c.fetchall()
-        c.close()
-        return rows
+        with self.conn as c:
+            if channel is None:
+                cur = c.execute('''SELECT * 
+                                   FROM triviadelete 
+                                   ORDER BY id DESC LIMIT ?, ?''', 
+                                   (start, amount))
+            else:
+                cur = c.execute('''SELECT * 
+                                   FROM triviadelete 
+                                   WHERE channel_canonical=? 
+                                   ORDER BY id DESC LIMIT ?, ?''', 
+                                   (ircutils.toLower(channel), start, amount))
+            rows = cur.fetchall()
+            return rows
 
     def getReportById(self, id, channel=None):
-        c = self.conn.cursor()
-        if channel is None:
-            c.execute('''SELECT * 
-                         FROM triviareport 
-                         WHERE id=? LIMIT 1''', 
-                         (id,))
-        else:
-            c.execute('''SELECT * 
-                         FROM triviareport 
-                         WHERE id=? AND 
-                               channel_canonical=? 
-                         LIMIT 1''', 
-                         (id, ircutils.toLower(channel)))
-        row = c.fetchone()
-        c.close()
-        return row
+        with self.conn as c:
+            if channel is None:
+                cur = c.execute('''SELECT * 
+                                   FROM triviareport 
+                                   WHERE id=? LIMIT 1''', 
+                                   (id,))
+            else:
+                cur = c.execute('''SELECT * 
+                                   FROM triviareport 
+                                   WHERE id=? AND 
+                                         channel_canonical=? 
+                                   LIMIT 1''', 
+                                   (id, ircutils.toLower(channel)))
+            row = cur.fetchone()
+            return row
 
     def getReportTop3(self, page=1, amount=3, channel=None):
         if page < 1:
@@ -1454,21 +1440,20 @@ class Storage:
             amount=3
         page -= 1
         start = page * amount
-        c = self.conn.cursor()
-        if channel is None:
-            c.execute('''SELECT * 
-                         FROM triviareport 
-                         ORDER BY id DESC LIMIT ?, ?''', 
-                         (start, amount))
-        else:
-            c.execute('''SELECT * 
-                         FROM triviareport 
-                         WHERE channel_canonical=? 
-                         ORDER BY id DESC LIMIT ?, ?''', 
-                         (ircutils.toLower(channel), start, amount))
-        rows = c.fetchall()
-        c.close()
-        return rows
+        with self.conn as c:
+            if channel is None:
+                cur = c.execute('''SELECT * 
+                                   FROM triviareport 
+                                   ORDER BY id DESC LIMIT ?, ?''', 
+                                   (start, amount))
+            else:
+                cur = c.execute('''SELECT * 
+                                   FROM triviareport 
+                                   WHERE channel_canonical=? 
+                                   ORDER BY id DESC LIMIT ?, ?''', 
+                                   (ircutils.toLower(channel), start, amount))
+            rows = cur.fetchall()
+            return rows
 
     def getTemporaryQuestionTop3(self, page=1, amount=3, channel=None):
         if page < 1:
@@ -1477,40 +1462,38 @@ class Storage:
             amount=3
         page -= 1
         start = page * amount
-        c = self.conn.cursor()
-        if channel is None:
-            c.execute('''SELECT * 
-                         FROM triviatemporaryquestion 
-                         ORDER BY id DESC LIMIT ?, ?''', 
-                         (start, amount))
-        else:
-            c.execute('''SELECT * 
-                         FROM triviatemporaryquestion 
-                         WHERE channel_canonical=? 
-                         ORDER BY id DESC LIMIT ?, ?''', 
-                         (ircutils.toLower(channel), start, amount))
-        rows = c.fetchall()
-        c.close()
-        return rows
+        with self.conn as c:
+            if channel is None:
+                cur = c.execute('''SELECT * 
+                                   FROM triviatemporaryquestion 
+                                   ORDER BY id DESC LIMIT ?, ?''', 
+                                   (start, amount))
+            else:
+                cur = c.execute('''SELECT * 
+                                   FROM triviatemporaryquestion 
+                                   WHERE channel_canonical=? 
+                                   ORDER BY id DESC LIMIT ?, ?''', 
+                                   (ircutils.toLower(channel), start, amount))
+            rows = cur.fetchall()
+            return rows
 
     def getTemporaryQuestionById(self, id, channel=None):
-        c = self.conn.cursor()
-        if channel is None:
-            c.execute('''SELECT * 
-                         FROM triviatemporaryquestion 
-                         WHERE id=? 
-                         LIMIT 1''', 
-                         (id,))
-        else:
-            c.execute('''SELECT * 
-                         FROM triviatemporaryquestion 
-                         WHERE id=? AND 
-                               channel_canonical=? 
-                         LIMIT 1''', 
-                         (id, ircutils.toLower(channel)))
-        row = c.fetchone()
-        c.close()
-        return row
+        with self.conn as c:
+            if channel is None:
+                cur = c.execute('''SELECT * 
+                                   FROM triviatemporaryquestion 
+                                   WHERE id=? 
+                                   LIMIT 1''', 
+                                   (id,))
+            else:
+                cur = c.execute('''SELECT * 
+                                   FROM triviatemporaryquestion 
+                                   WHERE id=? AND 
+                                         channel_canonical=? 
+                                   LIMIT 1''', 
+                                   (id, ircutils.toLower(channel)))
+            row = cur.fetchone()
+            return row
 
     def getEditTop3(self, page=1, amount=3, channel=None):
         if page < 1:
@@ -1519,21 +1502,20 @@ class Storage:
             amount = 3
         page -= 1
         start = page * amount
-        c = self.conn.cursor()
-        if channel is None:
-            c.execute('''SELECT * 
-                         FROM triviaedit 
-                         ORDER BY id DESC LIMIT ?, ?''', 
-                         (start, amount))
-        else:
-            c.execute('''SELECT * 
-                         FROM triviaedit 
-                         WHERE channel_canonical=? 
-                         ORDER BY id DESC LIMIT ?, ?''', 
-                         (ircutils.toLower(channel), start, amount))
-        rows = c.fetchall()
-        c.close()
-        return rows
+        with self.conn as c:
+            if channel is None:
+                cur = c.execute('''SELECT * 
+                                   FROM triviaedit 
+                                   ORDER BY id DESC LIMIT ?, ?''', 
+                                   (start, amount))
+            else:
+                cur = c.execute('''SELECT * 
+                                   FROM triviaedit 
+                                   WHERE channel_canonical=? 
+                                   ORDER BY id DESC LIMIT ?, ?''', 
+                                   (ircutils.toLower(channel), start, amount))
+            rows = cur.fetchall()
+            return rows
         
     def getEditById(self, id, channel=None):
         c = self.conn.cursor()
@@ -1555,24 +1537,22 @@ class Storage:
         return row
 
     def getNumUserActiveIn(self, channel, timeSeconds):
-        channelCanonical = ircutils.toLower(channel)
         epoch = int(time.mktime(time.localtime()))
         dateObject = datetime.date.today()
         day   = dateObject.day
         month = dateObject.month
         year  = dateObject.year
-        c = self.conn.cursor()
-        c.execute('''SELECT COUNT(*) 
-                     FROM triviauserlog
-                     WHERE day=? AND 
-                           month=? AND 
-                           year=? AND 
-                           channel_canonical=? AND 
-                           last_updated>?''', 
-                     (day, month, year, channelCanonical, (epoch-timeSeconds)))
-        row = c.fetchone()
-        c.close()
-        return row[0]
+        with self.conn as c:
+            cur = c.execute('''SELECT COUNT(*) 
+                               FROM triviauserlog
+                               WHERE day=? AND 
+                                     month=? AND 
+                                     year=? AND 
+                                     channel_canonical=? AND 
+                                     last_updated>?''', 
+                               (day, month, year, ircutils.toLower(channel), (epoch-timeSeconds)))
+            row = cur.fetchone()
+            return row[0]
     
     def getVersion(self):
         c = self.conn.cursor();
@@ -1584,62 +1564,51 @@ class Storage:
             pass
 
     def gameExists(self, channel):
-        channel = ircutils.toLower(channel)
-        c = self.conn.cursor()
-        c.execute('''SELECT COUNT(id) 
-                     FROM triviagames 
-                     WHERE channel_canonical=?''', 
-                     (channel,))
-        row = c.fetchone()
-        c.close()
-        return row[0] > 0
+        with self.conn as c:
+            cur = c.execute('''SELECT COUNT(id) 
+                               FROM triviagames 
+                               WHERE channel_canonical=?''', 
+                               (ircutils.toLower(channel),))
+            row = cur.fetchone()
+            return row[0] > 0
 
     def loginExists(self, username):
-        usernameCanonical = ircutils.toLower(username)
-        c = self.conn.cursor()
-        c.execute('''SELECT COUNT(id) 
-                     FROM trivialogin 
-                     WHERE username_canonical=?''', 
-                     (usernameCanonical,))
-        row = c.fetchone()
-        c.close()
-        return row[0] > 0
+        with self.conn as c:
+            cur = c.execute('''SELECT COUNT(id) 
+                               FROM trivialogin 
+                               WHERE username_canonical=?''', 
+                               (ircutils.toLower(username),))
+            row = cur.fetchone()
+            return row[0] > 0
 
     def insertActivity(self, aType, activity, channel, network, timestamp=None):
         if timestamp is None:
             timestamp = int(time.mktime(time.localtime()))
-        channelCanonical = ircutils.toLower(channel)
-        c = self.conn.cursor()
-        c.execute('''INSERT INTO triviaactivity 
-                     VALUES (NULL, ?, ?, ?, ?, ?, ?)''',
-                     (aType, activity, channel, channelCanonical, network, 
-                      timestamp))
-        self.conn.commit()
+        with self.conn as c:
+            c.execute('''INSERT INTO triviaactivity 
+                         VALUES (NULL, ?, ?, ?, ?, ?, ?)''',
+                         (aType, activity, channel, ircutils.toLower(channel), 
+                          network, timestamp))
 
     def insertDelete(self, username, channel, lineNumber, reason):
-        usernameCanonical = ircutils.toLower(username)
-        channelCanonical = ircutils.toLower(channel)
-        c = self.conn.cursor()
-        c.execute('''INSERT INTO triviadelete 
-                     VALUES (NULL, ?, ?, ?, ?, ?, ?)''',
-                     (username, usernameCanonical, lineNumber, channel, 
-                      channelCanonical, reason))
-        self.conn.commit()
+        with self.conn as c:
+            c.execute('''INSERT INTO triviadelete 
+                         VALUES (NULL, ?, ?, ?, ?, ?, ?)''',
+                         (username, ircutils.toLower(username), lineNumber, channel, 
+                          ircutils.toLower(channel), reason))
 
     def insertLogin(self, username, salt, isHashed, password, capability):
-        usernameCanonical = ircutils.toLower(username)
         if self.loginExists(username):
             return self.updateLogin(username, salt, isHashed, password, capability)
         if not isHashed:
             isHashed = 0
         else:
             isHashed = 1
-        c = self.conn.cursor()
-        c.execute('''INSERT INTO trivialogin 
-                     VALUES (NULL, ?, ?, ?, ?, ?, ?)''',
-                     (username, usernameCanonical, salt, isHashed, 
-                      password, capability))
-        self.conn.commit()
+        with self.conn as c:
+            c.execute('''INSERT INTO trivialogin 
+                         VALUES (NULL, ?, ?, ?, ?, ?, ?)''',
+                         (username, ircutils.toLower(username), salt, isHashed, 
+                          password, capability))
 
     def insertUserLog(self, username, channel, score, numAnswered, timeTaken, day=None, month=None, year=None, epoch=None):
         if day == None and month == None and year == None:
@@ -2209,48 +2178,40 @@ class Storage:
         return row[0] > 0
 
     def userExists(self, username):
-        c = self.conn.cursor()
-        usr = (ircutils.toLower(username),)
-        c.execute('''SELECT COUNT(id) 
-                     FROM triviausers 
-                     WHERE username_canonical=?''', usr)
-        row = c.fetchone()
-        c.close()
-        return row[0] > 0
+        with self.conn as c:
+            cur = c.execute('''SELECT COUNT(id) 
+                               FROM triviausers 
+                               WHERE username_canonical=?''', 
+                               (ircutils.toLower(username),))
+            row = cur.fetchone()
+            return row[0] > 0
 
     def userLevelExists(self, username, channel):
-        usernameCanonical = ircutils.toLower(username)
-        channelCanonical = ircutils.toLower(username)
-        
-        c = self.conn.cursor()
-        c.execute('''SELECT COUNT(id) 
-                     FROM trivialevel
-                     WHERE username_canonical=? AND 
-                           channel_canonical=?''',
-                    (usernameCanonical, channelCanonical))
-        row = c.fetchone()
-        c.close()
-        return row[0] > 0
+        with self.conn as c:
+            cur = c.execute('''SELECT COUNT(id) 
+                               FROM trivialevel
+                               WHERE username_canonical=? AND 
+                                     channel_canonical=?''',
+                               (ircutils.toLower(username), ircutils.toLower(channel)))
+            row = cur.fetchone()
+            return row[0] > 0
         
     def updateLogin(self, username, salt, isHashed, password, capability):
         if not self.loginExists(username):
             return self.insertLogin(username, salt, isHashed, password, capability)
-        usernameCanonical = ircutils.toLower(username)
         if not isHashed:
             isHashed = 0
         else:
             isHashed = 1
-        c = self.conn.cursor()
-        c.execute('''UPDATE trivialogin 
-                     SET username=?, 
-                         salt=?, 
-                         is_hashed=?, 
-                         password=?, 
-                         capability=?
-                     WHERE username_canonical=?''', 
-                    (username, salt, isHashed, password, capability, usernameCanonical))
-        self.conn.commit()
-        c.close()
+        with self.conn as c:
+            c.execute('''UPDATE trivialogin 
+                         SET username=?, 
+                             salt=?, 
+                             is_hashed=?, 
+                             password=?, 
+                             capability=?
+                         WHERE username_canonical=?''', 
+                        (username, salt, isHashed, password, capability, ircutils.toLower(username)))
 
     def updateUserLog(self, username, channel, score, numAnswered, timeTaken, day=None, month=None, year=None, epoch=None):
         if not self.userExists(username):
